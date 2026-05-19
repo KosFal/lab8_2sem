@@ -88,3 +88,32 @@ const withAuth = (client, strategy) => {
     },
   };
 };
+
+class ApiService {
+  constructor(client) { this._client = client; }
+  get(url)        { return this._client.request({ url, method: 'GET' }); }
+  post(url, body) { return this._client.request({ url, method: 'POST', body }); }
+}
+
+(async () => {
+  const jwtExpired = strategies.jwt('expired', () => 'fresh-' + Date.now());
+  const apiKey     = strategies.apiKey(process.env.API_KEY || 'valid-key');
+  const oauth      = strategies.oauth('id', 'secret');
+  const proxy      = withAuth(withRateLimit(withLogging(new BaseClient(mockFetch)), 5), jwtExpired);
+  const svc        = new ApiService(proxy);
+
+  console.log('\n── JWT 401 → auto refresh ──');
+  console.log(await svc.get('/api/me'));
+
+  console.log('\n── switch → ApiKey ──');
+  proxy.setStrategy(apiKey);
+  console.log(await svc.post('/api/items', { x: 1 }));
+
+  console.log('\n── switch → OAuth ──');
+  proxy.setStrategy(oauth);
+  console.log(await svc.get('/api/data'));
+
+  console.log('\n── 429 rate limit ──');
+  console.log(await svc.get('/api/data'));
+  console.log(await svc.get('/api/data'));
+})();
