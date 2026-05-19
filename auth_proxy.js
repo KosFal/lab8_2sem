@@ -22,3 +22,23 @@ class BaseClient {
     return this._fetch(url, { method, headers });
   }
 }
+
+const withLogging = client => ({
+  async request(req) {
+    console.log(`→ ${req.method ?? 'GET'} ${req.url}`);
+    const res = await client.request(req);
+    console.log(`← ${res.status}`);
+    return res;
+  },
+});
+
+const withRateLimit = (client, max) => {
+  let count = 0;
+  return {
+    request(req) {
+      if (count >= max) return fail(429, `Ліміт ${max} запитів вичерпано`);
+      console.log(`[rate] ${++count}/${max}`);
+      return client.request(req);
+    },
+  };
+};
