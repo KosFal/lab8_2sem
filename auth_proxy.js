@@ -71,3 +71,20 @@ const strategies = {
 async function mockOauthFetch(id, secret) {
   return id === 'id' && secret === 'secret' ? 'oauth-token-abc' : null;
 }
+
+const withAuth = (client, strategy) => {
+  let current = strategy;
+  return {
+    setStrategy(s) { console.log(`[auth] ${current.name} → ${s.name}`); current = s; },
+    async request(req) {
+      const authed = { ...req, headers: { ...req.headers, ...(await current.headers()) } };
+      let res = await client.request(authed);
+      if (res.status === 401 && current.refresh) {
+        console.log('[auth] 401 → refresh...');
+        await current.refresh();
+        res = await client.request({ ...req, headers: { ...req.headers, ...(await current.headers()) } });
+      }
+      return res;
+    },
+  };
+};
