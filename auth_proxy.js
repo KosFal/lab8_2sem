@@ -42,3 +42,32 @@ const withRateLimit = (client, max) => {
     },
   };
 };
+
+const strategies = {
+  apiKey: key => ({
+    name: 'ApiKey',
+    headers: () => ({ 'X-API-Key': key }),
+  }),
+  jwt: (initialToken, refreshFn) => {
+    let token = initialToken;
+    return {
+      name: 'JWT',
+      headers: () => ({ Authorization: `Bearer ${token}` }),
+      refresh: async () => { token = await refreshFn(); console.log('[jwt] новий токен:', token); },
+    };
+  },
+  oauth: (clientId, clientSecret) => {
+    let cached = null;
+    return {
+      name: 'OAuth',
+      headers: async () => {
+        if (!cached) cached = await mockOauthFetch(clientId, clientSecret);
+        return { Authorization: `Bearer ${cached}` };
+      },
+    };
+  },
+};
+
+async function mockOauthFetch(id, secret) {
+  return id === 'id' && secret === 'secret' ? 'oauth-token-abc' : null;
+}
